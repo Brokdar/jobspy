@@ -1,4 +1,4 @@
-from jobspy.tui import JobSpy
+from jobspy.tui.app import JobSpy
 
 
 def main() -> None:

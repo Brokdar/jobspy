@@ -1,0 +1,49 @@
+Header {
+    dock: top;
+    height: 3;
+    content-align: center middle;
+    color: white;
+    background: $surface;
+}
+
+Input {
+    margin: 1 2;
+}
+
+Horizontal {
+    margin-left: 2;
+    margin-right: 2;
+}
+
+JobDetails {
+    padding: 1 2;
+    min-width: 60;
+    # content-align: center middle;
+    # dock: bottom;
+    # margin: 2;
+}
+
+JobMaster {
+    width: auto;
+    padding: 1 2;
+    # height: 80h;
+    # min-height: 7;
+    # margin: 1 2;
+}
+
+JobMaster > .datatable--header {
+    text-style: bold;
+    background: darkslateblue;
+}
+
+JobMaster > .datatable--cursor {
+    background: teal;
+}
+
+JobMaster > .datatable--hover {
+    background: teal 30%;
+}
+
+JobMaster > .datatable--header-hover {
+    background: darkslateblue;
+}
