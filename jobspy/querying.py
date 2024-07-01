@@ -1,4 +1,4 @@
-"""Implements a querying language for filtering lists of data."""
+"""Implements a flexible querying language for filtering lists of data based on various conditions and operators."""
 
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -86,14 +86,13 @@ class InvalidOperatorError(Exception):
         self.operator = operator
 
         super().__init__(
-            f"Invalid operator usage on field '{field_name}'. "
-            f"The operator '{operator}' isn't allowed on fields of type '{field_type}'. "
-            f"Allowed operators are {", ".join(VALID_OPERATOR_MAP[field_type])}"
+            f"Invalid operator '{operator}' for field '{field_name}' of type '{field_type}'. "
+            f"Allowed operators: {', '.join(VALID_OPERATOR_MAP[field_type])}"
         )
 
 
 class Queryable(Protocol):
-    """Protocol defining the interface for evaluating base models."""
+    """Protocol defining the interface for objects that can be evaluated against a BaseModel item."""
 
     def evaluate(self, item: BaseModel) -> bool:
         """Evaluates the queryable against a BaseModel item."""
@@ -144,7 +143,7 @@ class Condition(Queryable):
 
 
 class Query(Queryable):
-    """Represents a query made up of many Queryable objects."""
+    """Represents a complex query composed of multiple Queryable objects, combined using logical operators."""
 
     def __init__(
         self,
