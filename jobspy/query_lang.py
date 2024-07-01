@@ -1,17 +1,23 @@
+"""Implements a querying language for filtering lists of data."""
+
 from datetime import datetime, timedelta
-from enum import Enum, auto
-from typing import Any, Protocol, TypeVar, Union, List
+from enum import StrEnum
+from typing import Any, Callable, Protocol, TypeVar
 from pydantic import BaseModel
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
-class LogicOperator(Enum):
+
+class LogicOperator(StrEnum):
     """Enum representing logical operators for combining query conditions."""
-    AND = auto()
-    OR = auto()
 
-class ComparisonOperator(Enum):
+    AND = "AND"
+    OR = "OR"
+
+
+class ComparisonOperator(StrEnum):
     """Enum representing comparison operators for query conditions."""
+
     EQ = "="
     NE = "!="
     LT = "<"
@@ -19,264 +25,195 @@ class ComparisonOperator(Enum):
     LE = "<="
     GE = ">="
 
-class QueryComponent(Protocol):
-    """Protocol defining the interface for query components."""
-    def evaluate(self, item: BaseModel) -> bool:
-        """Evaluate the query component against a BaseModel item."""
-        ...
 
-class Condition(QueryComponent):
+VALID_OPERATOR_MAP: dict[type, tuple[ComparisonOperator]] = {
+    str: (ComparisonOperator.EQ, ComparisonOperator.NE),
+    bool: (ComparisonOperator.EQ, ComparisonOperator.NE),
+    int: (
+        ComparisonOperator.EQ,
+        ComparisonOperator.NE,
+        ComparisonOperator.LT,
+        ComparisonOperator.GT,
+        ComparisonOperator.LE,
+        ComparisonOperator.GE,
+    ),
+    float: (
+        ComparisonOperator.EQ,
+        ComparisonOperator.NE,
+        ComparisonOperator.LT,
+        ComparisonOperator.GT,
+        ComparisonOperator.LE,
+        ComparisonOperator.GE,
+    ),
+    datetime: (
+        ComparisonOperator.EQ,
+        ComparisonOperator.NE,
+        ComparisonOperator.LT,
+        ComparisonOperator.GT,
+        ComparisonOperator.LE,
+        ComparisonOperator.GE,
+    ),
+    timedelta: (
+        ComparisonOperator.EQ,
+        ComparisonOperator.NE,
+        ComparisonOperator.LT,
+        ComparisonOperator.GT,
+        ComparisonOperator.LE,
+        ComparisonOperator.GE,
+    ),
+}
+
+OPERATOR_FUNCTION_MAP: dict[ComparisonOperator, Callable[[Any, Any], bool]] = {
+    ComparisonOperator.EQ: lambda x, y: x == y,
+    ComparisonOperator.NE: lambda x, y: x != y,
+    ComparisonOperator.LT: lambda x, y: x < y,
+    ComparisonOperator.GT: lambda x, y: x > y,
+    ComparisonOperator.LE: lambda x, y: x <= y,
+    ComparisonOperator.GE: lambda x, y: x >= y,
+}
+
+
+class InvalidOperatorError(Exception):
+    """Raises on invalid operator usage."""
+
+    def __init__(
+        self, field_name: str, field_type: type, operator: ComparisonOperator
+    ) -> None:
+        """Initializes an invalid operator error."""
+        self.field_name = field_name
+        self.field_type = field_type
+        self.operator = operator
+
+        super().__init__(
+            f"Invalid operator usage on field '{field_name}'. "
+            f"The operator '{operator}' isn't allowed on fields of type '{field_type}'. "
+            f"Allowed operators are {", ".join(VALID_OPERATOR_MAP[field_type])}"
+        )
+
+
+class Queryable(Protocol):
+    """Protocol defining the interface for evaluating base models."""
+
+    def evaluate(self, item: BaseModel) -> bool:
+        """Evaluates the queryable against a BaseModel item."""
+
+
+class Condition(Queryable):
     """Represents a single condition in a query."""
 
-    def __init__(self, field: str, operator: ComparisonOperator, value: Any):
-        """
-        Initialize a Condition.
+    def __init__(self, field: str, operator: ComparisonOperator, value: Any) -> None:
+        """Initializes a condition.
 
-        :param field: The field to compare.
-        :param operator: The comparison operator.
-        :param value: The value to compare against.
+        Args:
+            field (str): the field to compare.
+            operator (ComparisonOperator): the comparison operator.
+            value (Any): the value to compare against.
         """
         self.field = field
         self.operator = operator
         self.value = value
 
     def __str__(self) -> str:
-        """Return a string representation of the condition."""
-        return f'{self.field} {self.operator.value} {self.value}'
+        """Returns a string representation of the condition."""
+        return f"{self.field} {self.operator} {self.value}"
 
     def evaluate(self, item: BaseModel) -> bool:
-        """
-        Evaluate the condition against a BaseModel item.
+        """Evaluate the condition against a BaseModel item.
 
-        :param item: The item to evaluate against.
-        :return: True if the condition is met, False otherwise.
+        Args:
+            item (BaseModel): the item to evaluate against.
+
+        Returns:
+            bool: True if the query is met, False otherwise.
         """
         item_value = getattr(item, self.field, None)
         if item_value is None:
             return False
 
-        value = self.value
-        if isinstance(item_value, (datetime, timedelta)):
-            if isinstance(value, str):
-                try:
-                    value = datetime.fromisoformat(value)
-                except ValueError:
-                    raise ValueError(f"Invalid datetime format: {value}")
-            elif not isinstance(value, (datetime, timedelta)):
-                raise TypeError(f"Cannot compare datetime with {type(value)}")
-        elif isinstance(item_value, (int, float)):
-            if isinstance(value, str):
-                try:
-                    value = type(item_value)(value)
-                except ValueError:
-                    raise ValueError(f"Cannot convert '{value}' to {type(item_value).__name__}")
-            elif not isinstance(value, (int, float)):
-                raise TypeError(f"Cannot compare {type(item_value).__name__} with {type(value)}")
-        elif isinstance(item_value, str):
-            item_value = item_value.lower()
-            if isinstance(value, str):
-                value = value.lower()
+        item_type = type(item_value)
+        if not isinstance(self.value, item_type):
+            raise TypeError(
+                f"Field value type doesn't match value type: {item_type} != {type(self.value)}"
+            )
 
-        op_func = {
-            ComparisonOperator.EQ: lambda x, y: x == y,
-            ComparisonOperator.NE: lambda x, y: x != y,
-            ComparisonOperator.LT: lambda x, y: x < y,
-            ComparisonOperator.GT: lambda x, y: x > y,
-            ComparisonOperator.LE: lambda x, y: x <= y,
-            ComparisonOperator.GE: lambda x, y: x >= y,
-        }
+        if self.operator not in VALID_OPERATOR_MAP[item_type]:
+            raise InvalidOperatorError(self.field, item_type, self.operator)
 
-        return op_func[self.operator](item_value, value)
+        return OPERATOR_FUNCTION_MAP[self.operator](item_value, self.value)
 
-class Query(QueryComponent):
-    """Represents a composite query made up of multiple query components."""
 
-    def __init__(self, components: List[QueryComponent] = None, logic: LogicOperator = LogicOperator.AND):
+class Query(Queryable):
+    """Represents a query made up of many Queryable objects."""
+
+    def __init__(
+        self,
+        queryables: list[Queryable] | None = None,
+        logic_operator: LogicOperator = LogicOperator.AND,
+    ) -> None:
+        """Initializes a Query.
+
+        Args:
+            queryables (list[Queryable], optional): list of queryable objects.
+                Defaults to [].
+            logic_operator (LogicOperator, optional): logic operator to use when combining queryables.
+                Defaults to LogicOperator.AND.
         """
-        Initialize a Query.
+        self._queryables: list[Queryable] = queryables or []
+        self._logic_operator = logic_operator
 
-        :param components: List of query components.
-        :param logic: The logical operator to use when combining components.
+    def add(self, queryable: Queryable) -> None:
+        """Add a Queryable to to the Query.
+
+        Args:
+            queryable (Queryable): Queryable to be added.
         """
-        self.logic_operator = logic
-        self.components: List[QueryComponent] = components or []
-
-    def add(self, component: QueryComponent):
-        """Add a query component to the query."""
-        self.components.append(component)
+        self._queryables.append(queryable)
 
     def __str__(self) -> str:
         """Return a string representation of the query."""
-        conditions_str = f' {self.logic_operator.name} '.join(str(condition) for condition in self.components)
-        return f"({conditions_str})"
+        return f" {self._logic_operator} ".join(
+            str(queryable) for queryable in self._queryables
+        )
 
     def evaluate(self, item: BaseModel) -> bool:
-        """
-        Evaluate the query against a BaseModel item.
+        """Evaluate the query against a BaseModel item.
 
-        :param item: The item to evaluate against.
-        :return: True if the query conditions are met, False otherwise.
+        Args:
+            item (BaseModel): the item to evaluate against.
+
+        Returns:
+            bool: True if the query is met, False otherwise.
         """
-        if self.logic_operator == LogicOperator.AND:
-            return all(condition.evaluate(item) for condition in self.components)
-        elif self.logic_operator == LogicOperator.OR:
-            return any(condition.evaluate(item) for condition in self.components)
+        if self._logic_operator == LogicOperator.AND:
+            return all(queryable.evaluate(item) for queryable in self._queryables)
+        elif self._logic_operator == LogicOperator.OR:
+            return any(queryable.evaluate(item) for queryable in self._queryables)
         return False
 
-class QueryBuilder:
-    """Builder class for constructing complex queries."""
-
-    def __init__(self):
-        """Initialize a QueryBuilder with an empty query stack."""
-        self.query_stack: List[Query] = [Query()]
-
-    def add_condition(self, field: str, operator: str, value: Any) -> 'QueryBuilder':
-        """
-        Add a condition to the current query.
-
-        :param field: The field to compare.
-        :param operator: The comparison operator as a string.
-        :param value: The value to compare against.
-        :return: The QueryBuilder instance for method chaining.
-        """
-        condition = Condition(field, ComparisonOperator(operator), value)
-        self.query_stack[-1].add(condition)
-        return self
-
-    def and_(self) -> 'QueryBuilder':
-        """
-        Start a new AND group in the query.
-
-        :return: The QueryBuilder instance for method chaining.
-        """
-        new_query = Query(logic=LogicOperator.AND)
-        self.query_stack[-1].add(new_query)
-        self.query_stack.append(new_query)
-        return self
-
-    def or_(self) -> 'QueryBuilder':
-        """
-        Start a new OR group in the query.
-
-        :return: The QueryBuilder instance for method chaining.
-        """
-        new_query = Query(logic=LogicOperator.OR)
-        self.query_stack[-1].add(new_query)
-        self.query_stack.append(new_query)
-        return self
-
-    def end_group(self) -> 'QueryBuilder':
-        """
-        End the current query group.
-
-        :return: The QueryBuilder instance for method chaining.
-        """
-        if len(self.query_stack) > 1:
-            self.query_stack.pop()
-        return self
-
-    def build(self) -> Query:
-        """
-        Build and return the final query.
-
-        :return: The constructed Query object.
-        """
-        return self.query_stack[0]
 
 class QueryParser:
     """Parser for converting string queries into Query objects."""
 
-    def parse_query(self, query: str) -> Query:
+    def parse(self, query: str) -> Query:
+        """Parse a string query into a Query object.
+
+        Args:
+            query (str): query to parse.
+
+        Returns:
+            Query: parsed Query object.
         """
-        Parse a string query into a Query object.
+        return Query()
 
-        :param query: The string query to parse.
-        :return: The parsed Query object.
-        """
-        if not query.strip():
-            return Query()
-        tokens = self._tokenize(query)
-        return self._parse_expression(tokens)
 
-    def _tokenize(self, query: str) -> List[str]:
-        """
-        Tokenize the query string.
+def filter_items(query: Query, items: list[T]) -> list[T]:
+    """Filter a list of items based on a query.
 
-        :param query: The query string to tokenize.
-        :return: A list of tokens.
-        """
-        tokens = []
-        current_token = ""
-        in_quotes = False
-        for char in query:
-            if char == '"':
-                in_quotes = not in_quotes
-                current_token += char
-            elif char.isspace() and not in_quotes:
-                if current_token:
-                    tokens.append(current_token)
-                    current_token = ""
-            else:
-                current_token += char
-        if current_token:
-            tokens.append(current_token)
-        return tokens
+    Args:
+        query (Query): the query to filter by.
+        items (list[T]): the list of items to filter.
 
-    def _parse_expression(self, tokens: List[str], min_precedence: int = 0) -> Query:
-        """
-        Parse an expression from the token list.
-
-        :param tokens: List of tokens to parse.
-        :param min_precedence: Minimum precedence level for operators.
-        :return: The parsed Query object.
-        """
-        left = self._parse_condition(tokens)
-        
-        while tokens and self._get_precedence(tokens[0]) >= min_precedence:
-            operator = tokens.pop(0)
-            right = self._parse_expression(tokens, self._get_precedence(operator) + 1)
-            
-            new_query = Query([left, right], LogicOperator[operator.upper()])
-            left = new_query
-        
-        return left
-
-    def _parse_condition(self, tokens: List[str]) -> Union[Condition, Query]:
-        """
-        Parse a condition from the token list.
-
-        :param tokens: List of tokens to parse.
-        :return: The parsed Condition or Query object.
-        """
-        if tokens[0] == '(':
-            tokens.pop(0)  # Remove opening parenthesis
-            condition = self._parse_expression(tokens)
-            if not tokens or tokens.pop(0) != ')':
-                raise ValueError("Mismatched parentheses in query")
-            return condition
-        else:
-            if len(tokens) < 3:
-                raise ValueError("Invalid condition format")
-            field = tokens.pop(0).lower()
-            operator = ComparisonOperator(tokens.pop(0))
-            value = tokens.pop(0).strip('"')
-            return Condition(field, operator, value)
-
-    def _get_precedence(self, operator: str) -> int:
-        """
-        Get the precedence of a logical operator.
-
-        :param operator: The operator to check.
-        :return: The precedence level of the operator.
-        """
-        return 2 if operator.upper() == "AND" else 1
-
-def filter_items(query: Query, items: List[T]) -> List[T]:
-    """
-    Filter a list of items based on a query.
-
-    :param query: The query to filter by.
-    :param items: The list of items to filter.
-    :return: A filtered list of items that match the query.
+    Returns:
+        list[T]: A filtered list of items that match the query.
     """
     return [item for item in items if query.evaluate(item)]
