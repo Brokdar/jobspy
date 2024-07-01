@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Any, Callable, Protocol, TypeVar
+from typing import Any, Callable, Generator, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -74,7 +74,11 @@ OPERATOR_FUNCTION_MAP: dict[ComparisonOperator, Callable[[Any, Any], bool]] = {
 }
 
 
-class InvalidOperatorError(Exception):
+class QueryError(Exception):
+    """Base class for query-related errors."""
+
+
+class InvalidOperatorError(QueryError):
     """Raises on invalid operator usage."""
 
     def __init__(
@@ -88,6 +92,15 @@ class InvalidOperatorError(Exception):
         super().__init__(
             f"Invalid operator '{operator}' for field '{field_name}' of type '{field_type}'. "
             f"Allowed operators: {', '.join(VALID_OPERATOR_MAP[field_type])}"
+        )
+
+
+class TypeMismatchError(QueryError):
+    """Raised when field value type doesn't match the provided value type."""
+
+    def __init__(self, field_name: str, expected_type: type, actual_type: type) -> None:
+        super().__init__(
+            f"Type mismatch for field '{field_name}': expected {expected_type}, got {actual_type}"
         )
 
 
@@ -132,9 +145,7 @@ class Condition(Queryable):
 
         item_type = type(item_value)
         if not isinstance(self.value, item_type):
-            raise TypeError(
-                f"Field value type doesn't match value type: {item_type} != {type(self.value)}"
-            )
+            raise TypeMismatchError(self.field, type(item_value), type(self.value))
 
         if self.operator not in VALID_OPERATOR_MAP[item_type]:
             raise InvalidOperatorError(self.field, item_type, self.operator)
@@ -206,7 +217,7 @@ class QueryParser:
         return Query()
 
 
-def filter_items(query: Query, items: list[T]) -> list[T]:
+def filter_items(query: Query, items: list[T]) -> Generator[T, None, None]:
     """Filter a list of items based on a query.
 
     Args:
@@ -214,6 +225,6 @@ def filter_items(query: Query, items: list[T]) -> list[T]:
         items (list[T]): the list of items to filter.
 
     Returns:
-        list[T]: A filtered list of items that match the query.
+        Generator[T]: A filtered list of items that match the query.
     """
-    return [item for item in items if query.evaluate(item)]
+    return (item for item in items if query.evaluate(item))

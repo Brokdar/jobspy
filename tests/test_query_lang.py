@@ -6,6 +6,7 @@ from jobspy.querying import (
     ComparisonOperator,
     Condition,
     InvalidOperatorError,
+    TypeMismatchError,
 )
 from tests import TestItem
 
@@ -132,5 +133,5 @@ class TestGroupConditions:
     def test_raises_error_on_mismatching_types(self, single_item: TestItem) -> None:
         """Raises error on mismatching types."""
         condition = Condition("name", ComparisonOperator.EQ, 1)
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeMismatchError):
             condition.evaluate(single_item)
