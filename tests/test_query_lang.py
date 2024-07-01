@@ -1,6 +1,5 @@
 """Test suite for the querying language implementation."""
 
-from datetime import datetime, timedelta
 import pytest
 
 from jobspy.querying import (
@@ -23,7 +22,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, expected_result: bool, single_item: TestItem
     ) -> None:
         """Evaluates string fields of an item."""
-        condition = Condition("name", operator, "Alice")
+        condition = Condition("name", operator, single_item.name)
         assert condition.evaluate(single_item) is expected_result
 
     @pytest.mark.parametrize(
@@ -35,7 +34,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, expected_result: bool, single_item: TestItem
     ) -> None:
         """Evaluates bool fields of an item."""
-        condition = Condition("active", operator, True)
+        condition = Condition("active", operator, single_item.active)
         assert condition.evaluate(single_item) is expected_result
 
     @pytest.mark.parametrize(
@@ -54,7 +53,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, expected_result: bool, single_item: TestItem
     ):
         """Evaluates int field of an item."""
-        condition = Condition("id", operator, 1)
+        condition = Condition("id", operator, single_item.id)
         assert condition.evaluate(single_item) is expected_result
 
     @pytest.mark.parametrize(
@@ -73,7 +72,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, expected_result: bool, single_item: TestItem
     ):
         """Evaluates float field of an item."""
-        condition = Condition("factor", operator, 100.0)
+        condition = Condition("factor", operator, single_item.factor)
         assert condition.evaluate(single_item) is expected_result
 
     @pytest.mark.parametrize(
@@ -92,7 +91,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, expected_result: bool, single_item: TestItem
     ):
         """Evaluates datetime field of an item."""
-        condition = Condition("created_at", operator, datetime(2024, 6, 1, 18, 30, 0))
+        condition = Condition("created_at", operator, single_item.created_at)
         assert condition.evaluate(single_item) is expected_result
 
     @pytest.mark.parametrize(
@@ -111,7 +110,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, expected_result: bool, single_item: TestItem
     ):
         """Evaluates timedelta field of an item."""
-        condition = Condition("duration ", operator, timedelta(hours=1))
+        condition = Condition("duration", operator, single_item.duration)
         assert condition.evaluate(single_item) is expected_result
 
     @pytest.mark.parametrize(
@@ -126,7 +125,7 @@ class TestGroupConditions:
         self, operator: ComparisonOperator, single_item: TestItem
     ) -> None:
         """Invalid string operators raise error."""
-        condition = Condition("name", operator, "Alice")
+        condition = Condition("name", operator, single_item.name)
         with pytest.raises(InvalidOperatorError):
             condition.evaluate(single_item)
 

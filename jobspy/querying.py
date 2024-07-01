@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any, Callable, Protocol, TypeVar
+
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
@@ -26,41 +27,41 @@ class ComparisonOperator(StrEnum):
     GE = ">="
 
 
-VALID_OPERATOR_MAP: dict[type, tuple[ComparisonOperator]] = {
-    str: (ComparisonOperator.EQ, ComparisonOperator.NE),
-    bool: (ComparisonOperator.EQ, ComparisonOperator.NE),
-    int: (
+VALID_OPERATOR_MAP: dict[type, list[ComparisonOperator]] = {
+    str: [ComparisonOperator.EQ, ComparisonOperator.NE],
+    bool: [ComparisonOperator.EQ, ComparisonOperator.NE],
+    int: [
         ComparisonOperator.EQ,
         ComparisonOperator.NE,
         ComparisonOperator.LT,
         ComparisonOperator.GT,
         ComparisonOperator.LE,
         ComparisonOperator.GE,
-    ),
-    float: (
+    ],
+    float: [
         ComparisonOperator.EQ,
         ComparisonOperator.NE,
         ComparisonOperator.LT,
         ComparisonOperator.GT,
         ComparisonOperator.LE,
         ComparisonOperator.GE,
-    ),
-    datetime: (
+    ],
+    datetime: [
         ComparisonOperator.EQ,
         ComparisonOperator.NE,
         ComparisonOperator.LT,
         ComparisonOperator.GT,
         ComparisonOperator.LE,
         ComparisonOperator.GE,
-    ),
-    timedelta: (
+    ],
+    timedelta: [
         ComparisonOperator.EQ,
         ComparisonOperator.NE,
         ComparisonOperator.LT,
         ComparisonOperator.GT,
         ComparisonOperator.LE,
         ComparisonOperator.GE,
-    ),
+    ],
 }
 
 OPERATOR_FUNCTION_MAP: dict[ComparisonOperator, Callable[[Any, Any], bool]] = {
