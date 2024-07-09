@@ -1,8 +1,9 @@
 """Implements a flexible querying language for filtering lists of data based on various conditions and operators."""
 
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Any, Callable, Generator, Protocol, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -107,34 +108,27 @@ class TypeMismatchError(QueryError):
 class Queryable(Protocol):
     """Protocol defining the interface for objects that can be evaluated against a BaseModel item."""
 
-    def evaluate(self, item: BaseModel) -> bool:
-        """Evaluates the queryable against a BaseModel item."""
+    def evaluate(self, item: T) -> bool:
+        """Evaluates the queryable against a T item."""
 
 
+@dataclass
 class Condition(Queryable):
     """Represents a single condition in a query."""
 
-    def __init__(self, field: str, operator: ComparisonOperator, value: Any) -> None:
-        """Initializes a condition.
-
-        Args:
-            field (str): the field to compare.
-            operator (ComparisonOperator): the comparison operator.
-            value (Any): the value to compare against.
-        """
-        self.field = field
-        self.operator = operator
-        self.value = value
+    field: str
+    operator: ComparisonOperator
+    value: Any
 
     def __str__(self) -> str:
         """Returns a string representation of the condition."""
         return f"{self.field} {self.operator} {self.value}"
 
-    def evaluate(self, item: BaseModel) -> bool:
+    def evaluate(self, item: T) -> bool:
         """Evaluate the condition against a BaseModel item.
 
         Args:
-            item (BaseModel): the item to evaluate against.
+            item (T): the item to evaluate against.
 
         Returns:
             bool: True if the query is met, False otherwise.
@@ -153,24 +147,18 @@ class Condition(Queryable):
         return OPERATOR_FUNCTION_MAP[self.operator](item_value, self.value)
 
 
+@dataclass
 class Query(Queryable):
     """Represents a complex query composed of multiple Queryable objects, combined using logical operators."""
 
-    def __init__(
-        self,
-        queryables: list[Queryable] | None = None,
-        logic_operator: LogicOperator = LogicOperator.AND,
-    ) -> None:
-        """Initializes a Query.
+    queryables: list[Queryable] = field(default_factory=list)
+    logic_operator: LogicOperator = LogicOperator.AND
 
-        Args:
-            queryables (list[Queryable], optional): list of queryable objects.
-                Defaults to [].
-            logic_operator (LogicOperator, optional): logic operator to use when combining queryables.
-                Defaults to LogicOperator.AND.
-        """
-        self._queryables: list[Queryable] = queryables or []
-        self._logic_operator = logic_operator
+    def __str__(self) -> str:
+        """Return a string representation of the query."""
+        return f" {self.logic_operator} ".join(
+            str(queryable) for queryable in self.queryables
+        )
 
     def add(self, queryable: Queryable) -> None:
         """Add a Queryable to to the Query.
@@ -178,53 +166,19 @@ class Query(Queryable):
         Args:
             queryable (Queryable): Queryable to be added.
         """
-        self._queryables.append(queryable)
+        self.queryables.append(queryable)
 
-    def __str__(self) -> str:
-        """Return a string representation of the query."""
-        return f" {self._logic_operator} ".join(
-            str(queryable) for queryable in self._queryables
-        )
-
-    def evaluate(self, item: BaseModel) -> bool:
+    def evaluate(self, item: T) -> bool:
         """Evaluate the query against a BaseModel item.
 
         Args:
-            item (BaseModel): the item to evaluate against.
+            item (T): the item to evaluate against.
 
         Returns:
             bool: True if the query is met, False otherwise.
         """
-        if self._logic_operator == LogicOperator.AND:
-            return all(queryable.evaluate(item) for queryable in self._queryables)
-        elif self._logic_operator == LogicOperator.OR:
-            return any(queryable.evaluate(item) for queryable in self._queryables)
+        if self.logic_operator == LogicOperator.AND:
+            return all(queryable.evaluate(item) for queryable in self.queryables)
+        elif self.logic_operator == LogicOperator.OR:
+            return any(queryable.evaluate(item) for queryable in self.queryables)
         return False
-
-
-class QueryParser:
-    """Parser for converting string queries into Query objects."""
-
-    def parse(self, query: str) -> Query:
-        """Parse a string query into a Query object.
-
-        Args:
-            query (str): query to parse.
-
-        Returns:
-            Query: parsed Query object.
-        """
-        return Query()
-
-
-def filter_items(query: Query, items: list[T]) -> Generator[T, None, None]:
-    """Filter a list of items based on a query.
-
-    Args:
-        query (Query): the query to filter by.
-        items (list[T]): the list of items to filter.
-
-    Returns:
-        Generator[T]: A filtered list of items that match the query.
-    """
-    return (item for item in items if query.evaluate(item))

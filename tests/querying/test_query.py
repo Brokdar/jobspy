@@ -2,10 +2,12 @@
 
 import pytest
 
-from jobspy.querying import (
+from jobspy.querying.query import (
     ComparisonOperator,
     Condition,
     InvalidOperatorError,
+    LogicOperator,
+    Query,
     TypeMismatchError,
 )
 from tests import TestItem
@@ -135,3 +137,62 @@ class TestGroupConditions:
         condition = Condition("name", ComparisonOperator.EQ, 1)
         with pytest.raises(TypeMismatchError):
             condition.evaluate(single_item)
+
+
+class TestGroupQuery:
+    """Test group that tests the query logic."""
+
+    @pytest.mark.parametrize(
+        ["name", "id", "logic_operator", "expected_result"],
+        [
+            ("Alice", 1, LogicOperator.AND, True),
+            ("Bob", 1, LogicOperator.AND, False),
+            ("Alice", 2, LogicOperator.OR, True),
+            ("Bob", 1, LogicOperator.OR, True),
+            ("Bob", 2, LogicOperator.OR, False),
+        ],
+        ids=[
+            "name = Alice AND id = 1",
+            "name = Bob AND id = 1",
+            "name = Alice or id = 2",
+            "name = Bob or id = 1",
+            "name = Bob or id = 2",
+        ],
+    )
+    def test_combines_conditions_logically(
+        self,
+        name: str,
+        id: int,
+        logic_operator: LogicOperator,
+        expected_result: bool,
+        single_item: TestItem,
+    ) -> None:
+        """Combines conditions logically."""
+        query = Query(
+            [
+                Condition("name", ComparisonOperator.EQ, name),
+                Condition("id", ComparisonOperator.EQ, id),
+            ],
+            logic_operator,
+        )
+
+        assert query.evaluate(single_item) is expected_result
+
+    def test_complex_query(self, single_item: TestItem) -> None:
+        """Tests complex query logic."""
+        # (name = Alice OR id = 1) AND factor <= 2.0
+        query = Query(
+            [
+                Query(
+                    [
+                        Condition("name", ComparisonOperator.EQ, "Alice"),
+                        Condition("id", ComparisonOperator.EQ, 1),
+                    ],
+                    LogicOperator.OR,
+                ),
+                Condition("factor", ComparisonOperator.GE, 2.0),
+            ],
+            LogicOperator.AND,
+        )
+
+        assert query.evaluate(single_item) is True
