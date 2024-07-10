@@ -31,38 +31,10 @@ class ComparisonOperator(StrEnum):
 VALID_OPERATOR_MAP: dict[type, list[ComparisonOperator]] = {
     str: [ComparisonOperator.EQ, ComparisonOperator.NE],
     bool: [ComparisonOperator.EQ, ComparisonOperator.NE],
-    int: [
-        ComparisonOperator.EQ,
-        ComparisonOperator.NE,
-        ComparisonOperator.LT,
-        ComparisonOperator.GT,
-        ComparisonOperator.LE,
-        ComparisonOperator.GE,
-    ],
-    float: [
-        ComparisonOperator.EQ,
-        ComparisonOperator.NE,
-        ComparisonOperator.LT,
-        ComparisonOperator.GT,
-        ComparisonOperator.LE,
-        ComparisonOperator.GE,
-    ],
-    datetime: [
-        ComparisonOperator.EQ,
-        ComparisonOperator.NE,
-        ComparisonOperator.LT,
-        ComparisonOperator.GT,
-        ComparisonOperator.LE,
-        ComparisonOperator.GE,
-    ],
-    timedelta: [
-        ComparisonOperator.EQ,
-        ComparisonOperator.NE,
-        ComparisonOperator.LT,
-        ComparisonOperator.GT,
-        ComparisonOperator.LE,
-        ComparisonOperator.GE,
-    ],
+    int: list(ComparisonOperator),
+    float: list(ComparisonOperator),
+    datetime: list(ComparisonOperator),
+    timedelta: list(ComparisonOperator),
 }
 
 OPERATOR_FUNCTION_MAP: dict[ComparisonOperator, Callable[[Any, Any], bool]] = {
