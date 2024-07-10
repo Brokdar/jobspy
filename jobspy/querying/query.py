@@ -151,7 +151,7 @@ class Condition(Queryable):
 class Query(Queryable):
     """Represents a complex query composed of multiple Queryable objects, combined using logical operators."""
 
-    queryables: list[Queryable] = field(default_factory=list)
+    queryables: list[Queryable] = field(default_factory=list)  # type: ignore
     logic_operator: LogicOperator = LogicOperator.AND
 
     def __str__(self) -> str:
@@ -164,7 +164,7 @@ class Query(Queryable):
         """Add a Queryable to to the Query.
 
         Args:
-            queryable (Queryable): Queryable to be added.
+            queryable (Q): Queryable to be added.
         """
         self.queryables.append(queryable)
 

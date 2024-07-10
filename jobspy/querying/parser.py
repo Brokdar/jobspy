@@ -2,7 +2,13 @@ import re
 from datetime import datetime, timedelta
 from typing import Any
 
-from jobspy.querying.query import ComparisonOperator, Condition, Query
+from jobspy.querying.query import (
+    ComparisonOperator,
+    Condition,
+    LogicOperator,
+    Query,
+    Queryable,
+)
 
 
 class QueryParser:
@@ -20,9 +26,10 @@ class QueryParser:
         Returns:
             Query: The parsed Query object.
         """
-        return self._parse_query(query_str)
+        tokens = self._tokenize(query_str)
+        return self._parse_query(tokens)
 
-    def _tokenize(self, query_string: str) -> list[str]:
+    def _tokenize(self, query_str: str) -> list[str]:
         """Tokenize the query string into a list of tokens.
 
         This method uses regex to split the query string into tokens, preserving
@@ -34,17 +41,40 @@ class QueryParser:
         Returns:
             list[str]: A list of tokens.
         """
-        return [query_string]
-        # pattern = r"(\(|\)|\S+)"
-        # return [
-        #     token.strip()
-        #     for token in re.findall(pattern, query_string)
-        #     if token.strip()
-        # ]
+        pattern = r"\s+\b(AND|OR)\b\s+"
+        return [
+            token.strip() for token in re.split(pattern, query_str, flags=re.IGNORECASE)
+        ]
 
-    def _parse_query(self, query_str: str) -> Query:
-        condition = self._parse_condition(query_str)
-        return Query([condition])
+    def _parse_query(self, tokens: list[str]) -> Query:
+        or_group: list[Queryable] = []
+        conditions: list[Queryable] = []
+
+        for token in tokens:
+            if token.upper() == LogicOperator.OR:
+                if conditions:
+                    or_group.append(
+                        Query(conditions) if len(conditions) > 1 else conditions[0]
+                    )
+                    conditions = []
+            elif token.upper() == LogicOperator.AND:
+                continue
+            else:
+                conditions.append(self._parse_condition(token))
+
+        if conditions:
+            or_group.append(Query(conditions) if len(conditions) > 1 else conditions[0])
+
+        if len(or_group) > 1:
+            return Query(or_group, LogicOperator.OR)
+        else:
+            if isinstance(or_group[0], Condition):
+                return Query(or_group)
+            if isinstance(or_group[0], Query):
+                return or_group[0]
+            raise TypeError(
+                f"Unexpected type: {type(or_group[0])} while parsing the query string"
+            )
 
     def _parse_condition(self, condition_str: str) -> Condition:
         """Parse a condition string into a Condition object.
