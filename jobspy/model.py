@@ -9,12 +9,14 @@ class Job(BaseModel):
 
     name: str
     status: str
-    created_on: datetime
+    created_at: datetime
     link: str
     project: str
     finished_on: datetime | None = None
     duration: timedelta | None = None
     runner: str | None = None
+    return_code: int = 0
+    error: str | None = None
 
 
 def generate_dummy_jobs(num_jobs: int = 10) -> list[Job]:
@@ -37,7 +39,7 @@ def generate_dummy_jobs(num_jobs: int = 10) -> list[Job]:
         job = Job(
             name=f"job-{i+1}",
             status=status,
-            created_on=created_on,
+            created_at=created_on,
             link=f"https://ci-cd.example.com/jobs/job-{i+1}",
             project=random.choice(projects),
             finished_on=finished_on,
