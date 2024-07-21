@@ -5,7 +5,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.validation import ValidationResult, Validator
-from textual.widgets import DataTable, Footer, Header, Input
+from textual.widgets import DataTable, Footer, Input
 
 from jobspy.model import Job, generate_dummy_jobs
 from jobspy.querying import filter_items
@@ -47,7 +47,6 @@ class JobSpy(App):
 
     def compose(self) -> ComposeResult:
         """Setup the user interface of the application."""
-        # yield Header()
         yield self.input
         with Horizontal():
             yield self.master
