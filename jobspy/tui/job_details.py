@@ -22,17 +22,28 @@ class JobDetails(Static):
             ["Project", job.project],
             ["Runner", job.runner],
             ["Status", job.status],
+            ["Commit ID", job.commit_id],
             ["Created At", job.created_at.strftime("%Y-%m-%d %H:%M:%S")],
             [
-                "Finished On",
-                job.finished_on.strftime("%Y-%m-%d %H:%M:%S")
-                if job.finished_on
+                "Started At",
+                job.started_at.strftime("%Y-%m-%d %H:%M:%S")
+                if job.started_at
                 else None,
             ],
-            ["Duration", str(job.duration) if job.duration else ""],
-            ["Link", job.link],
-            ["Return Code", str(job.return_code)],
-            ["Error", job.error],
+            [
+                "Finished At",
+                job.finished_at.strftime("%Y-%m-%d %H:%M:%S")
+                if job.finished_at
+                else None,
+            ],
+            ["Duration", str(job.duration) if job.duration else None],
+            [
+                "Queued Duration",
+                str(job.queued_duration) if job.queued_duration else None,
+            ],
+            ["Pipeline URL", job.pipeline_url],
+            ["Job URL", job.job_url],
+            ["Failure Reason", job.failure_reason],
         ]
         for row in rows:
             table.add_row(*row)

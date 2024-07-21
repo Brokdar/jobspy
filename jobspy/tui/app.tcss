@@ -17,14 +17,15 @@ Horizontal {
 
 JobDetails {
     padding: 1 2;
-    min-width: 60;
+    min-width: 80;
     # content-align: center middle;
     # dock: bottom;
     # margin: 2;
 }
 
 JobMaster {
-    width: auto;
+    # width: auto;
+    width: 60w;
     padding: 1 2;
     # height: 80h;
     # min-height: 7;

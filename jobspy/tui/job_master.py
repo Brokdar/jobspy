@@ -19,6 +19,6 @@ class JobMaster(DataTable):
             job.project,
             job.runner if job.runner else "",
             Text(job.status, style="italic"),
-            job.finished_on.strftime("%Y-%m-%d %H:%M:%S") if job.finished_on else "",
+            job.finished_at.strftime("%Y-%m-%d %H:%M:%S") if job.finished_at else "",
             Text(str(job.duration) if job.duration else "", justify="right"),
         )

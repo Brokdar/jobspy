@@ -47,7 +47,7 @@ class JobSpy(App):
 
     def compose(self) -> ComposeResult:
         """Setup the user interface of the application."""
-        yield Header()
+        # yield Header()
         yield self.input
         with Horizontal():
             yield self.master
