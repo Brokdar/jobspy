@@ -1,15 +1,14 @@
 from collections.abc import Iterable
-from pathlib import Path
 
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.validation import ValidationResult, Validator
-from textual.widgets import DataTable, Footer, Header, Input
+from textual.widgets import DataTable, Footer, Input
 
-from jobspy.model import Job, generate_dummy_jobs
-from jobspy.querying import filter_items
+from jobspy.model import Job
 from jobspy.querying.parser import QueryParser
+from jobspy.services.gitlab import GitlabClient
 from jobspy.tui.job_details import JobDetails
 from jobspy.tui.job_master import JobMaster
 
@@ -35,9 +34,9 @@ class JobSpy(App):
         ("ctrl+r", "reset_filter", "reset filter"),
     ]
 
-    def __init__(self, config: Path | None = None):
-        self.config = config
-        self.jobs = generate_dummy_jobs()
+    def __init__(self, client: GitlabClient):
+        self.client = client
+        self.jobs: list[Job] = []
         self.master = JobMaster(cursor_type="row")
         self.details = JobDetails()
         self.input = Input(
@@ -54,17 +53,19 @@ class JobSpy(App):
             yield self.details
         yield Footer()
 
-    def on_mount(self):
+    async def on_mount(self):
+        await self.client.init()
         self.master.add_column("Name", width=25)
         self.master.add_column("Project", width=16)
         self.master.add_column("Runner", width=16)
         self.master.add_column("Status", width=16)
         self.master.add_column("Finished On", width=20)
         self.master.add_column("Duration", width=10)
+        self.jobs = await self.client.query_jobs()
         self.display_jobs(self.jobs)
 
     @on(Input.Submitted)
-    def handle_input_submission(self, event: Input.Submitted) -> None:
+    async def handle_input_submission(self, event: Input.Submitted) -> None:
         if event.validation_result and event.validation_result.is_valid:
             self.apply_filter(event.value)
 
@@ -80,13 +81,14 @@ class JobSpy(App):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         self.details.update_job(self.jobs[event.cursor_row])
 
-    def apply_filter(self, filter: str) -> None:
+    @work(exclusive=True)
+    async def apply_filter(self, filter: str) -> None:
         if filter:
             query = QueryParser().parse(filter)
-            jobs = filter_items(query, self.jobs)
-            self.display_jobs(jobs)
+            self.jobs = await self.client.query_jobs(query)
         else:
-            self.display_jobs(self.jobs)
+            self.jobs = await self.client.query_jobs()
+        self.display_jobs(self.jobs)
 
     def display_jobs(self, jobs: Iterable[Job]) -> None:
         self.master.clear()

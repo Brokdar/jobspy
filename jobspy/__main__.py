@@ -1,9 +1,11 @@
+from jobspy.services.gitlab import GitlabClient
 from jobspy.tui.app import JobSpy
 
 
 def main() -> None:
     """Main function of the JobSpy application."""
-    app = JobSpy()
+    client = GitlabClient()
+    app = JobSpy(client)
     app.run()
 
 
